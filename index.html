@@ -682,6 +682,11 @@
                             <span class="info-value" id="illumination">0%</span>
                         </div>
                     </div>
+                    
+                    <div class="tidal-info">
+                        <strong>🌊 潮汐關係</strong><br>
+                        <span id="tidalInfo">引潮力最小，海平面變化幅度最小</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -754,14 +759,14 @@
         ];
 
         const PHASE_DESCRIPTIONS = {
-            '新月': '月球與太陽在地球同側。太陽照射月球背面，地球上無法看見（朔望月週期約29.5天的起始）。',
-            '眉月': '月球稍向東移，可看到月面西邊細細的新月。此時月球剛從新月位置移動。',
-            '上弦月': '月球公轉至東方90°，從地球看月面右半邊被照亮，形似字母「D」。正午升起，午夜落下。',
-            '盈凸月': '月球接近滿月，月面大部分被照亮呈隆起狀。太陽照射角度變大。',
-            '滿月': '月球與太陽在地球兩側相對。整個月面都被太陽直射照亮。',
-            '虧凸月': '滿月後，月面左邊漸漸變暗，呈隆起狀。月球繼續公轉，照亮面減少。',
-            '下弦月': '月球公轉至西方90°，從地球看月面左半邊被照亮，形似字母「C」。午夜升起，正午落下。',
-            '殘月': '月球接近新月，只有月面東邊細細的彎邊被照亮。朔望月週期即將完成。'
+            '新月': '月球與太陽在地球同側。太陽照射月球背面，地球上無法看見（朔望月週期約29.5天的起始）。【潮汐】引潮力最小，海平面變化幅度最小。',
+            '眉月': '月球稍向東移，可看到月面西邊細細的新月。此時月球剛從新月位置移動。【潮汐】潮汐開始增強。',
+            '上弦月': '月球公轉至東方90°，從地球看月面右半邊被照亮，形似字母「D」。正午升起，午夜落下。【潮汐】四分潮開始，引潮力中等，潮差逐漸增大。',
+            '盈凸月': '月球接近滿月，月面大部分被照亮呈隆起狀。太陽照射角度變大。【潮汐】月球與太陽引潮力開始相近，潮汐範圍擴大。',
+            '滿月': '月球與太陽在地球兩側相對。整個月面都被太陽直射照亮。【潮汐】大潮來臨，月球與太陽的引潮力相加，海平面升降幅度最大。',
+            '虧凸月': '滿月後，月面左邊漸漸變暗，呈隆起狀。月球繼續公轉，照亮面減少。【潮汐】潮差逐漸減小，月球引潮力逐漸減弱。',
+            '下弦月': '月球公轉至西方90°，從地球看月面左半邊被照亮，形似字母「C」。午夜升起，正午落下。【潮汐】四分潮再次出現，引潮力中等，潮差進一步減小。',
+            '殘月': '月球接近新月，只有月面東邊細細的彎邊被照亮。朔望月週期即將完成。【潮汐】小潮開始，潮差最小。'
         };
 
         // ========== 全局變數 ==========
@@ -781,11 +786,11 @@
             const orbitRadius = 150;
 
             // 清空背景
-            ctx.fillStyle = '#1a1a2e';
+            ctx.fillStyle = '#0a1428';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 繪製星空背景
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            // 繪製星空背景（隨機星星）
+            ctx.fillStyle = 'rgba(100, 149, 237, 0.6)';
             for (let i = 0; i < 100; i++) {
                 const x = Math.random() * canvas.width;
                 const y = Math.random() * canvas.height;
@@ -800,8 +805,8 @@
             ctx.beginPath();
             ctx.arc(centerX + 250, centerY, 25, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
-            ctx.lineWidth = 15;
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
+            ctx.lineWidth = 20;
             ctx.stroke();
 
             // 繪製地球
@@ -821,11 +826,24 @@
             ctx.fill();
 
             // 繪製月球軌道
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.strokeStyle = 'rgba(65, 105, 225, 0.3)';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(centerX, centerY, orbitRadius, 0, Math.PI * 2);
             ctx.stroke();
+
+            // 繪製月球軌跡光尾效果
+            for (let i = 10; i > 0; i--) {
+                const trailAngle = ((moonAngle - i * 5) * Math.PI) / 180;
+                const trailX = centerX + Math.cos(trailAngle) * orbitRadius;
+                const trailY = centerY + Math.sin(trailAngle) * orbitRadius;
+                const opacity = (10 - i) / 10 * 0.4;
+                
+                ctx.fillStyle = `rgba(255, 215, 0, ${opacity})`;
+                ctx.beginPath();
+                ctx.arc(trailX, trailY, 12 * opacity, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
             // 繪製月球
             const moonX = centerX + Math.cos((moonAngle * Math.PI) / 180) * orbitRadius;
@@ -835,8 +853,8 @@
             ctx.beginPath();
             ctx.arc(moonX, moonY, 12, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = '#888';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#4189ff';
+            ctx.lineWidth = 3;
             ctx.stroke();
 
             // 繪製隕石坑
@@ -848,13 +866,38 @@
             ctx.arc(moonX + 3, moonY + 2, 1.5, 0, Math.PI * 2);
             ctx.fill();
 
+            // 繪製觀測者視角指示
+            ctx.save();
+            ctx.strokeStyle = 'rgba(65, 200, 144, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(moonX, moonY);
+            ctx.stroke();
+            ctx.restore();
+
+            // 計算仰角
+            const dx = moonX - centerX;
+            const dy = moonY - centerY;
+            const elevation = Math.atan2(dy, dx) * 180 / Math.PI;
+            const azimuth = (elevation + 90) % 360;
+            
+            // 繪製方位角和仰角標籤
+            ctx.fillStyle = 'rgba(65, 200, 144, 0.7)';
+            ctx.font = 'bold 11px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`🔭 觀測者視角`, centerX - 100, centerY - orbitRadius - 40);
+            ctx.font = '10px Arial';
+            ctx.fillText(`方位角: ${Math.round(azimuth)}°`, centerX - 100, centerY - orbitRadius - 25);
+            ctx.fillText(`仰角: ${Math.round(Math.abs(dy / orbitRadius * 90))}°`, centerX - 100, centerY - orbitRadius - 12);
+
             // 繪製軌道標記
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillStyle = 'rgba(100, 149, 237, 0.5)';
             ctx.font = 'bold 12px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('太陽', centerX + 250, centerY + 50);
-            ctx.fillText('地球', centerX, centerY + 35);
-            ctx.fillText('月球軌道', centerX + orbitRadius + 10, centerY - 10);
+            ctx.fillText('☀ 太陽', centerX + 250, centerY + 50);
+            ctx.fillText('🌍 地球', centerX, centerY + 35);
         }
 
         function drawMoonPhase() {
@@ -865,8 +908,19 @@
             const radius = 80;
 
             // 清空背景
-            ctx.fillStyle = '#f8f9fa';
+            ctx.fillStyle = 'rgba(10, 20, 40, 0.6)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 繪製背景星星
+            ctx.fillStyle = 'rgba(100, 149, 237, 0.3)';
+            for (let i = 0; i < 20; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const r = Math.random() * 1;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
             // 繪製月球背面（灰色）
             ctx.fillStyle = '#999';
@@ -919,6 +973,20 @@
             document.getElementById('lunarDate').textContent = phase.lunarDate;
             document.getElementById('orbitAngle').textContent = Math.round(normalizedAngle) + '°';
             document.getElementById('illumination').textContent = Math.round(illumination) + '%';
+
+            // 更新潮汐信息
+            const tidalInfo = {
+                '新月': '引潮力最小，小潮，海平面升降幅度最小',
+                '眉月': '潮汐開始增強',
+                '上弦月': '四分潮開始，引潮力中等，潮差逐漸增大',
+                '盈凸月': '月球與太陽引潮力開始相近，潮汐範圍擴大',
+                '滿月': '大潮來臨，月球與太陽的引潮力相加，海平面升降幅度最大',
+                '虧凸月': '潮差逐漸減小，月球引潮力逐漸減弱',
+                '下弦月': '四分潮再次出現，引潮力中等，潮差進一步減小',
+                '殘月': '小潮開始，潮差最小'
+            };
+            
+            document.getElementById('tidalInfo').textContent = tidalInfo[phase.name];
         }
 
         // ========== 互動功能 ==========
@@ -1086,7 +1154,7 @@
             const radius = 50;
 
             // 清空背景
-            ctx.fillStyle = '#f8f9fa';
+            ctx.fillStyle = 'rgba(10, 20, 40, 0.6)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // 繪製月球背面
@@ -1113,7 +1181,7 @@
             }
 
             // 邊框
-            ctx.strokeStyle = '#333';
+            ctx.strokeStyle = '#4189ff';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
@@ -1177,6 +1245,30 @@
                 options: ['盈凸月', '虧凸月', '上弦月', '眉月'],
                 correct: 1,
                 explanation: '滿月後，照亮面開始減少，月面呈隆起狀稱為虧凸月（農曆二十二三日前後）。此時月球在西方，午夜升起、正午落下。'
+            },
+            {
+                type: 'concept',
+                question: '下弦月（C形）出現在夜空時的特徵是什麼？',
+                options: [
+                    '在東邊天空，形狀是D形，亮邊向西',
+                    '在西邊天空，形狀是C形，亮邊向東',
+                    '在東邊天空，形狀是C形，亮邊向西',
+                    '在南邊天空，正午升起'
+                ],
+                correct: 1,
+                explanation: '下弦月（C形，左邊亮）出現在西邊天空。此時月球在西方90°，亮邊指向東邊的太陽方向。下弦月午夜升起、正午落下。'
+            },
+            {
+                type: 'concept',
+                question: '若月球目前在地球西方90°位置且照亮面占50%，則此時地球位置和時間應該是：',
+                options: [
+                    '太陽在東邊地平線上升（日出時），月球在西邊天空',
+                    '太陽在西邊地平線下沉（日落後），月球在東邊天空',
+                    '太陽在西邊天空（日落），月球在東邊天空午夜升起準備',
+                    '地球正午時，月球在西邊天空，午夜即將落下'
+                ],
+                correct: 3,
+                explanation: '月球在西方90°（下弦月）照亮面占50%。此時是地球正午（太陽在南邊最高），月球也在天空西邊。下弦月的特徵就是午夜升起、正午落下，所以正午時月球在西邊，午夜時將落下。'
             }
         ];
 
@@ -1234,8 +1326,19 @@
             const centerY = canvas.height / 2;
             const radius = 80;
 
-            ctx.fillStyle = 'white';
+            ctx.fillStyle = 'rgba(10, 20, 40, 0.8)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 繪製背景星星
+            ctx.fillStyle = 'rgba(100, 149, 237, 0.3)';
+            for (let i = 0; i < 20; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const r = Math.random() * 1;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
             ctx.fillStyle = '#999';
             ctx.beginPath();
@@ -1258,7 +1361,7 @@
                 ctx.fill();
             }
 
-            ctx.strokeStyle = '#333';
+            ctx.strokeStyle = '#4189ff';
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
