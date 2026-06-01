@@ -678,6 +678,14 @@
                             <span class="info-value" id="orbitAngle">0°</span>
                         </div>
                         <div class="info-item">
+                            <span class="info-label">觀測者方位：</span>
+                            <span class="info-value" id="observerAzimuth">東 0°</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">觀測者仰角：</span>
+                            <span class="info-value" id="observerElevation">0°</span>
+                        </div>
+                        <div class="info-item">
                             <span class="info-label">可見光面：</span>
                             <span class="info-value" id="illumination">0%</span>
                         </div>
@@ -778,6 +786,23 @@
         let quizSubmitted = false;
 
         // ========== Canvas 相關函數 ==========
+        function getAzimuthDirection(angle) {
+            const normalized = ((angle % 360) + 360) % 360;
+            const directions = ['東', '東南', '南', '西南', '西', '西北', '北', '北東'];
+            return directions[Math.round(normalized / 45) % 8];
+        }
+
+        function getObserverAngles(angle) {
+            const normalized = ((angle % 360) + 360) % 360;
+            const elevation = Math.round(Math.sin((normalized * Math.PI) / 180) * -90);
+            const azimuth = Math.round(normalized);
+            return {
+                azimuth,
+                direction: getAzimuthDirection(azimuth),
+                elevation
+            };
+        }
+
         function drawOrbitSimulator() {
             const canvas = document.getElementById('orbitCanvas');
             const ctx = canvas.getContext('2d');
@@ -877,20 +902,23 @@
             ctx.stroke();
             ctx.restore();
 
-            // 計算仰角
-            const dx = moonX - centerX;
-            const dy = moonY - centerY;
-            const elevation = Math.atan2(dy, dx) * 180 / Math.PI;
-            const azimuth = (elevation + 90) % 360;
-            
+            const observer = getObserverAngles(moonAngle);
+            const elevation = observer.elevation;
+            const azimuth = observer.azimuth;
+            const direction = observer.direction;
+
             // 繪製方位角和仰角標籤
             ctx.fillStyle = 'rgba(65, 200, 144, 0.7)';
             ctx.font = 'bold 11px Arial';
             ctx.textAlign = 'center';
             ctx.fillText(`🔭 觀測者視角`, centerX - 100, centerY - orbitRadius - 40);
             ctx.font = '10px Arial';
-            ctx.fillText(`方位角: ${Math.round(azimuth)}°`, centerX - 100, centerY - orbitRadius - 25);
-            ctx.fillText(`仰角: ${Math.round(Math.abs(dy / orbitRadius * 90))}°`, centerX - 100, centerY - orbitRadius - 12);
+            ctx.fillText(`方位: ${direction} ${azimuth}°`, centerX - 100, centerY - orbitRadius - 25);
+            ctx.fillText(`仰角: ${elevation}°`, centerX - 100, centerY - orbitRadius - 12);
+
+            // 更新觀測者角度資訊卡
+            document.getElementById('observerAzimuth').textContent = `${direction} ${azimuth}°`;
+            document.getElementById('observerElevation').textContent = `${elevation}°`;
 
             // 繪製軌道標記
             ctx.fillStyle = 'rgba(100, 149, 237, 0.5)';
@@ -968,10 +996,13 @@
             const normalizedAngle = ((moonAngle % 360) + 360) % 360;
             const phaseIndex = Math.round(normalizedAngle / 45) % 8;
             const phase = PHASES[phaseIndex];
+            const observer = getObserverAngles(normalizedAngle);
 
             document.getElementById('phaseName').textContent = phase.name;
             document.getElementById('lunarDate').textContent = phase.lunarDate;
             document.getElementById('orbitAngle').textContent = Math.round(normalizedAngle) + '°';
+            document.getElementById('observerAzimuth').textContent = `${observer.direction} ${observer.azimuth}°`;
+            document.getElementById('observerElevation').textContent = `${observer.elevation}°`;
             document.getElementById('illumination').textContent = Math.round(illumination) + '%';
 
             // 更新潮汐信息
