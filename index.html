@@ -1226,7 +1226,28 @@
         // ========== 動畫循環 ==========
         function animate() {
             if (isPlaying) {
+                // 月球公轉角度遞增
                 moonAngle = (moonAngle + 0.5 * speed) % 360;
+
+                // 觀測者時間跟著月相同步轉動
+                earthRotation = (earthRotation + 0.5 * speed) % 360;
+
+                // 同步更新 Slider 的位置與標籤文字
+                const slider = document.getElementById('timeSlider');
+                const label = document.getElementById('timeLabel');
+                if (slider) slider.value = earthRotation;
+                if (label) {
+                    const hour = (earthRotation / 360 * 24 + 12) % 24;
+                    const hourStr = Math.floor(hour).toString().padStart(2, '0') + ':' +
+                                    Math.floor((hour % 1) * 60).toString().padStart(2, '0');
+                    const angleNorm = ((earthRotation % 360) + 360) % 360;
+                    let period = angleNorm < 90 ? '黃昏' : angleNorm < 180 ? '黃昏' : angleNorm < 270 ? '清晨' : '清晨';
+                    if (angleNorm === 0) period = '正午';
+                    else if (angleNorm === 180) period = '午夜';
+                    else if (angleNorm > 0 && angleNorm < 180) period = '黃昏';
+                    else period = '清晨';
+                    label.textContent = `${period} (${hourStr})`;
+                }
             }
 
             drawOrbitSimulator();
