@@ -162,6 +162,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
         }
 
         .preview-canvas {
@@ -170,6 +171,23 @@
             border-radius: 50%;
             overflow: hidden;
             box-shadow: 0 0 20px rgba(65, 105, 225, 0.5);
+        }
+
+        .horizon-mask {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.75);
+            color: #ff8a80;
+            font-weight: bold;
+            font-size: 1.1em;
+            padding: 12px 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(244, 67, 54, 0.4);
+            display: none;
+            pointer-events: none;
+            text-align: center;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            z-index: 10;
         }
 
         .info-card {
@@ -658,6 +676,13 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="control-group" style="width: 100%; margin-top: 15px;">
+                            <div class="speed-control" style="width: 100%; display: flex; align-items: center; gap: 15px;">
+                                <label style="min-width: 110px;">觀測者時間：</label>
+                                <input type="range" id="timeSlider" min="0" max="360" value="90" style="flex: 1; accent-color: #ffd700;" oninput="changeObserverTime()">
+                                <span id="timeLabel" style="min-width: 100px; color: #ffd700; font-weight: bold; text-align: right;">黃昏 (18:00)</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -665,6 +690,7 @@
                     <div class="preview-title">地球上看到的月相</div>
                     <div id="moonPreview">
                         <canvas id="moonPhasePreview" class="preview-canvas" width="200" height="200"></canvas>
+                        <div id="horizonMask" class="horizon-mask">🙈 地平線下<br>(不可見)</div>
                     </div>
 
                     <div class="info-card">
@@ -789,6 +815,7 @@
         let userAnswers = {};
         let quizSubmitted = false;
         let activeQuestions = [];
+        let earthRotation = 90; // 預設 90 度，即黃昏 (18:00)
 
         // ========== Canvas 相關函數 ==========
         function getAzimuthDirection(angle) {
@@ -896,34 +923,84 @@
             ctx.arc(moonX + 3, moonY + 2, 1.5, 0, Math.PI * 2);
             ctx.fill();
 
-            // 繪製觀測者視角指示
+            // 繪製地球上的觀測者天頂箭頭與地平切線
+            const obsRad = (earthRotation * Math.PI) / 180;
+            const obsX = centerX + Math.cos(obsRad) * earthRadius;
+            const obsY = centerY + Math.sin(obsRad) * earthRadius;
+
             ctx.save();
-            ctx.strokeStyle = 'rgba(65, 200, 144, 0.5)';
+            // 畫觀測者天頂指針 (亮綠色)
+            ctx.strokeStyle = '#2ECC71';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(obsX, obsY);
+            ctx.lineTo(obsX + Math.cos(obsRad) * 15, obsY + Math.sin(obsRad) * 15);
+            ctx.stroke();
+
+            // 畫地平線 (淡灰色切線，長度 40)
+            ctx.strokeStyle = 'rgba(200, 200, 200, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            const tangentX = -Math.sin(obsRad);
+            const tangentY = Math.cos(obsRad);
+            ctx.moveTo(obsX - tangentX * 20, obsY - tangentY * 20);
+            ctx.lineTo(obsX + tangentX * 20, obsY + tangentY * 20);
+            ctx.stroke();
+            ctx.restore();
+
+            // 物理模擬計算仰角與方位角
+            let moonNorm = ((moonAngle % 360) + 360) % 360;
+            let earthNorm = ((earthRotation % 360) + 360) % 360;
+            let angleDiff = Math.abs(moonNorm - earthNorm);
+            if (angleDiff > 180) angleDiff = 360 - angleDiff;
+            
+            // 仰角 (地平線以上為正，最大 90)
+            let elevation = 90 - Math.round(angleDiff);
+            let isVisible = elevation >= 0;
+
+            // 繪製觀測虛線
+            ctx.save();
+            ctx.strokeStyle = isVisible ? 'rgba(46, 204, 113, 0.6)' : 'rgba(244, 67, 54, 0.3)';
             ctx.lineWidth = 1;
             ctx.setLineDash([5, 5]);
             ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
+            ctx.moveTo(obsX, obsY);
             ctx.lineTo(moonX, moonY);
             ctx.stroke();
             ctx.restore();
 
-            const observer = getObserverAngles(moonAngle);
-            const elevation = observer.elevation;
-            const azimuth = observer.azimuth;
-            const direction = observer.direction;
+            // 方位角 (相對於天頂，在左邊為東，右邊為西)
+            let angleDelta = ((moonNorm - earthNorm + 360) % 360);
+            let direction = '';
+            let azimuth = Math.round(angleDiff);
+            if (angleDiff === 0) {
+                direction = '正上方 (中天)';
+            } else if (angleDelta > 0 && angleDelta < 180) {
+                direction = '東';
+            } else {
+                direction = '西';
+            }
 
             // 繪製方位角和仰角標籤
-            ctx.fillStyle = 'rgba(65, 200, 144, 0.7)';
+            ctx.fillStyle = isVisible ? 'rgba(46, 204, 113, 0.9)' : 'rgba(244, 67, 54, 0.7)';
             ctx.font = 'bold 11px Arial';
             ctx.textAlign = 'center';
             ctx.fillText(`🔭 觀測者視角`, centerX - 100, centerY - orbitRadius - 40);
             ctx.font = '10px Arial';
-            ctx.fillText(`方位: ${direction} ${azimuth}°`, centerX - 100, centerY - orbitRadius - 25);
-            ctx.fillText(`仰角: ${elevation}°`, centerX - 100, centerY - orbitRadius - 12);
-
-            // 更新觀測者角度資訊卡
-            document.getElementById('observerAzimuth').textContent = `${direction} ${azimuth}°`;
-            document.getElementById('observerElevation').textContent = `${elevation}°`;
+            
+            if (isVisible) {
+                ctx.fillText(`方位: ${direction} ${azimuth}°`, centerX - 100, centerY - orbitRadius - 25);
+                ctx.fillText(`仰角: ${elevation}°`, centerX - 100, centerY - orbitRadius - 12);
+                document.getElementById('observerAzimuth').textContent = `${direction} ${azimuth}°`;
+                document.getElementById('observerElevation').textContent = `${elevation}°`;
+                document.getElementById('horizonMask').style.display = 'none';
+            } else {
+                ctx.fillText(`方位: 在地平線下`, centerX - 100, centerY - orbitRadius - 25);
+                ctx.fillText(`仰角: ${elevation}° (不可見)`, centerX - 100, centerY - orbitRadius - 12);
+                document.getElementById('observerAzimuth').textContent = '地平線下';
+                document.getElementById('observerElevation').textContent = `${elevation}° (不可見)`;
+                document.getElementById('horizonMask').style.display = 'block';
+            }
 
             // 繪製軌道標記
             ctx.fillStyle = 'rgba(100, 149, 237, 0.5)';
@@ -933,8 +1010,13 @@
             ctx.fillText('🌍 地球', centerX, centerY + 35);
         }
 
-        function drawMoonPhaseHelper(ctx, centerX, centerY, radius, angle) {
+        function drawMoonPhaseHelper(ctx, centerX, centerY, radius, angle, rotAngle = 0) {
             ctx.save();
+            // 移動到中心，旋轉，再移回
+            ctx.translate(centerX, centerY);
+            ctx.rotate(rotAngle);
+            ctx.translate(-centerX, -centerY);
+
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
             ctx.clip();
@@ -999,8 +1081,10 @@
                 ctx.fill();
             }
 
-            // 呼叫 helper 畫月相
-            drawMoonPhaseHelper(ctx, centerX, centerY, radius, moonAngle);
+            // 計算旋轉弧度 (自轉角度 - 公轉角度)
+            const rotAngle = ((earthRotation - moonAngle) * Math.PI) / 180;
+            // 呼叫 helper 畫月相，傳入 rotAngle
+            drawMoonPhaseHelper(ctx, centerX, centerY, radius, moonAngle, rotAngle);
 
             // 邊框
             ctx.strokeStyle = '#333';
@@ -1518,6 +1602,33 @@
 
             document.getElementById('results').classList.remove('show');
             document.getElementById('quizQuestions').style.display = 'block';
+        }
+
+        // ========== 觀測者時間控制 ==========
+        function changeObserverTime() {
+            earthRotation = parseInt(document.getElementById('timeSlider').value);
+            
+            // 更新標籤顯示
+            const timeLabel = document.getElementById('timeLabel');
+            const hour = (earthRotation / 360 * 24 + 12) % 24;
+            const hourStr = Math.floor(hour).toString().padStart(2, '0') + ':' + Math.floor((hour % 1) * 60).toString().padStart(2, '0');
+            
+            let period = '';
+            const angleNorm = ((earthRotation % 360) + 360) % 360;
+            if (angleNorm === 0) {
+                period = '正午';
+            } else if (angleNorm > 0 && angleNorm < 180) {
+                period = '黃昏';
+            } else if (angleNorm === 180) {
+                period = '午夜';
+            } else {
+                period = '清晨';
+            }
+            timeLabel.textContent = `${period} (${hourStr})`;
+
+            // 重畫
+            drawOrbitSimulator();
+            drawMoonPhase();
         }
 
         // ========== 初始化 ==========
