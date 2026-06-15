@@ -149,7 +149,8 @@
         .preview-title {
             font-size: 1.2em;
             font-weight: 600;
-            color: #333;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
         }
 
         #moonPreview {
@@ -787,6 +788,7 @@
         let currentQuestionIndex = 0;
         let userAnswers = {};
         let quizSubmitted = false;
+        let activeQuestions = [];
 
         // ========== Canvas 相關函數 ==========
         function getAzimuthDirection(angle) {
@@ -931,6 +933,50 @@
             ctx.fillText('🌍 地球', centerX, centerY + 35);
         }
 
+        function drawMoonPhaseHelper(ctx, centerX, centerY, radius, angle) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.clip();
+
+            // 1. 繪製完整的暗面圓（灰色）
+            ctx.fillStyle = '#999';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            const normalizedAngle = ((angle % 360) + 360) % 360;
+            const angleRad = (normalizedAngle * Math.PI) / 180;
+
+            // 2. 依據公轉角度繪製半圓（黃色）
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            if (normalizedAngle > 0 && normalizedAngle < 180) {
+                // 上半月：右側亮
+                ctx.arc(centerX, centerY, radius, -Math.PI / 2, Math.PI / 2, false);
+            } else if (normalizedAngle > 180 && normalizedAngle < 360) {
+                // 下半月：左側亮
+                ctx.arc(centerX, centerY, radius, Math.PI / 2, -Math.PI / 2, false);
+            } else if (normalizedAngle === 180) {
+                // 滿月：整顆亮
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            }
+            ctx.fill();
+
+            // 3. 繪製晨昏線橢圓
+            const cosVal = Math.cos(angleRad);
+            const W = radius * Math.abs(cosVal);
+            if (W > 0) {
+                ctx.beginPath();
+                // 如果 cosVal > 0 (即亮面 < 50%)，畫灰色橢圓遮蓋；如果 cosVal < 0 (即亮面 > 50%)，畫黃色橢圓增加亮度
+                ctx.fillStyle = cosVal > 0 ? '#999' : '#FFD700';
+                ctx.ellipse(centerX, centerY, W, radius, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
         function drawMoonPhase() {
             const canvas = document.getElementById('moonPhasePreview');
             const ctx = canvas.getContext('2d');
@@ -953,36 +999,8 @@
                 ctx.fill();
             }
 
-            // 繪製月球背面（灰色）
-            ctx.fillStyle = '#999';
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            // 計算照亮面
-            const phaseAngle = (moonAngle * Math.PI) / 180;
-            const illumination = (Math.cos(phaseAngle) + 1) / 2 * 100;
-            
-            // 繪製照亮面
-            ctx.fillStyle = '#FFD700';
-            ctx.beginPath();
-
-            if (illumination > 0.5) {
-                // 超過50%用特殊方法
-                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-                ctx.fill();
-                
-                ctx.fillStyle = '#999';
-                const darkWidth = radius * 2 * (1 - illumination / 100);
-                ctx.beginPath();
-                ctx.ellipse(centerX - darkWidth / 2, centerY, darkWidth / 2, radius, 0, 0, Math.PI * 2);
-                ctx.fill();
-            } else {
-                // 小於50%
-                const angle = Math.acos(1 - 2 * illumination / 100);
-                ctx.arc(centerX, centerY, radius, -angle, angle);
-                ctx.fill();
-            }
+            // 呼叫 helper 畫月相
+            drawMoonPhaseHelper(ctx, centerX, centerY, radius, moonAngle);
 
             // 邊框
             ctx.strokeStyle = '#333';
@@ -992,6 +1010,9 @@
             ctx.stroke();
 
             // 更新資訊卡
+            const normalizedAngle = ((moonAngle % 360) + 360) % 360;
+            const angleRad = (normalizedAngle * Math.PI) / 180;
+            const illumination = (1 - Math.cos(angleRad)) / 2 * 100;
             updatePhaseInfo(illumination);
         }
 
@@ -1174,11 +1195,11 @@
                 grid.appendChild(card);
 
                 // 繪製月相圖
-                setTimeout(() => drawPhasePreview(index, phase.illumination), 0);
+                setTimeout(() => drawPhasePreview(index, phase.angle), 0);
             });
         }
 
-        function drawPhasePreview(index, illumination) {
+        function drawPhasePreview(index, angle) {
             const canvas = document.getElementById(`phase-canvas-${index}`);
             if (!canvas) return;
 
@@ -1191,28 +1212,8 @@
             ctx.fillStyle = 'rgba(10, 20, 40, 0.6)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 繪製月球背面
-            ctx.fillStyle = '#999';
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            // 繪製照亮面
-            ctx.fillStyle = '#FFD700';
-            if (illumination > 50) {
-                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#999';
-                const darkWidth = radius * 2 * (1 - illumination / 100);
-                ctx.beginPath();
-                ctx.ellipse(centerX - darkWidth / 2, centerY, darkWidth / 2, radius, 0, 0, Math.PI * 2);
-                ctx.fill();
-            } else {
-                const angle = Math.acos(1 - 2 * illumination / 100);
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, -angle, angle);
-                ctx.fill();
-            }
+            // 呼叫 helper 畫月相
+            drawMoonPhaseHelper(ctx, centerX, centerY, radius, angle);
 
             // 邊框
             ctx.strokeStyle = '#4189ff';
@@ -1228,6 +1229,7 @@
                 type: 'image',
                 question: '請看下面月相圖，這是哪一個月相？',
                 illumination: 0,
+                angle: 0,
                 options: ['新月', '上弦月', '滿月', '下弦月'],
                 correct: 0,
                 explanation: '完全看不到月球的月相就是新月，此時月球在太陽和地球之間。'
@@ -1236,6 +1238,7 @@
                 type: 'image',
                 question: '根據月相圖，可見光面占50%的月相是什麼？',
                 illumination: 50,
+                angle: 90,
                 options: ['眉月', '上弦月', '虧凸月', '殘月'],
                 correct: 1,
                 explanation: '可見光面占50%時，月球恰好在西邊90度方向，稱為上弦月。'
@@ -1244,6 +1247,7 @@
                 type: 'image',
                 question: '下圖的月相大約對應農曆哪個時期？',
                 illumination: 100,
+                angle: 180,
                 options: ['初一到初七', '初七到十五', '十五到二十二', '二十二到三十'],
                 correct: 2,
                 explanation: '月球被完全照亮稱為滿月，通常出現在農曆十五至十六日。'
@@ -1276,6 +1280,7 @@
                 type: 'image',
                 question: '這個月相中，月球已經進入滿月後的衰退期，照亮面開始減少，這是哪個月相？',
                 illumination: 90,
+                angle: 225,
                 options: ['盈凸月', '虧凸月', '上弦月', '眉月'],
                 correct: 1,
                 explanation: '滿月後，照亮面開始減少，月面呈隆起狀稱為虧凸月（農曆二十二三日前後）。此時月球在西方，午夜升起、正午落下。'
@@ -1306,11 +1311,23 @@
             }
         ];
 
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
         function initializeQuiz() {
             const container = document.getElementById('quizQuestions');
             container.innerHTML = '';
 
-            QUIZ_QUESTIONS.forEach((q, index) => {
+            // 隨機抽取 5 題且不重複
+            activeQuestions = shuffleArray(QUIZ_QUESTIONS).slice(0, 5);
+
+            activeQuestions.forEach((q, index) => {
                 const div = document.createElement('div');
                 div.className = 'quiz-question';
                 if (index === 0) div.classList.add('active');
@@ -1346,12 +1363,18 @@
                 container.appendChild(div);
 
                 if (q.type === 'image') {
-                    setTimeout(() => drawQuizPhase(index, q.illumination), 0);
+                    // 呼叫隨軌道角度繪製的方法
+                    setTimeout(() => drawQuizPhase(index, q.angle), 0);
                 }
             });
+
+            currentQuestionIndex = 0;
+            userAnswers = {};
+            quizSubmitted = false;
+            updateQuizDisplay();
         }
 
-        function drawQuizPhase(index, illumination) {
+        function drawQuizPhase(index, angle) {
             const canvas = document.getElementById(`quiz-canvas-${index}`);
             if (!canvas) return;
 
@@ -1374,26 +1397,8 @@
                 ctx.fill();
             }
 
-            ctx.fillStyle = '#999';
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = '#FFD700';
-            if (illumination > 50) {
-                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#999';
-                const darkWidth = radius * 2 * (1 - illumination / 100);
-                ctx.beginPath();
-                ctx.ellipse(centerX - darkWidth / 2, centerY, darkWidth / 2, radius, 0, 0, Math.PI * 2);
-                ctx.fill();
-            } else {
-                const angle = Math.acos(1 - 2 * illumination / 100);
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, -angle, angle);
-                ctx.fill();
-            }
+            // 呼叫 helper 畫月相
+            drawMoonPhaseHelper(ctx, centerX, centerY, radius, angle);
 
             ctx.strokeStyle = '#4189ff';
             ctx.lineWidth = 3;
@@ -1405,7 +1410,7 @@
         function selectAnswer(questionIndex, optionIndex) {
             userAnswers[questionIndex] = optionIndex;
 
-            const question = QUIZ_QUESTIONS[questionIndex];
+            const question = activeQuestions[questionIndex];
             const isCorrect = optionIndex === question.correct;
             const options = document.querySelectorAll(`input[name="question-${questionIndex}"]`);
 
@@ -1442,7 +1447,7 @@
         }
 
         function nextQuestion() {
-            if (currentQuestionIndex < QUIZ_QUESTIONS.length - 1) {
+            if (currentQuestionIndex < activeQuestions.length - 1) {
                 currentQuestionIndex++;
                 updateQuizDisplay();
             }
@@ -1461,25 +1466,25 @@
                 q.classList.toggle('active', index === currentQuestionIndex);
             });
 
-            document.getElementById('questionCount').textContent = `第 ${currentQuestionIndex + 1} 題 / 共 ${QUIZ_QUESTIONS.length} 題`;
-            document.getElementById('progressFill').style.width = `${((currentQuestionIndex + 1) / QUIZ_QUESTIONS.length) * 100}%`;
+            document.getElementById('questionCount').textContent = `第 ${currentQuestionIndex + 1} 題 / 共 ${activeQuestions.length} 題`;
+            document.getElementById('progressFill').style.width = `${((currentQuestionIndex + 1) / activeQuestions.length) * 100}%`;
 
             document.getElementById('prevBtn').style.display = currentQuestionIndex === 0 ? 'none' : 'block';
-            document.getElementById('nextBtn').style.display = currentQuestionIndex === QUIZ_QUESTIONS.length - 1 ? 'none' : 'block';
-            document.getElementById('submitBtn').style.display = currentQuestionIndex === QUIZ_QUESTIONS.length - 1 ? 'block' : 'none';
+            document.getElementById('nextBtn').style.display = currentQuestionIndex === activeQuestions.length - 1 ? 'none' : 'block';
+            document.getElementById('submitBtn').style.display = currentQuestionIndex === activeQuestions.length - 1 ? 'block' : 'none';
         }
 
         function submitQuiz() {
             quizSubmitted = true;
             let score = 0;
 
-            QUIZ_QUESTIONS.forEach((q, index) => {
+            activeQuestions.forEach((q, index) => {
                 if (userAnswers[index] === q.correct) {
                     score++;
                 }
             });
 
-            const totalScore = Math.round((score / QUIZ_QUESTIONS.length) * 100);
+            const totalScore = Math.round((score / activeQuestions.length) * 100);
             document.getElementById('scoreDisplay').textContent = `${totalScore} 分`;
 
             let feedback = '';
@@ -1497,7 +1502,7 @@
 
             document.getElementById('feedbackMessage').textContent = feedback;
             document.getElementById('feedbackDetail').innerHTML = `
-                你答對了 <strong>${score} / ${QUIZ_QUESTIONS.length}</strong> 題。
+                你答對了 <strong>${score} / ${activeQuestions.length}</strong> 題。
             `;
 
             document.getElementById('results').classList.add('show');
@@ -1508,25 +1513,11 @@
         }
 
         function resetQuiz() {
-            currentQuestionIndex = 0;
-            userAnswers = {};
-            quizSubmitted = false;
+            // 重新隨機抽題並打亂
+            initializeQuiz();
 
             document.getElementById('results').classList.remove('show');
             document.getElementById('quizQuestions').style.display = 'block';
-
-            document.querySelectorAll('.quiz-question').forEach((q, index) => {
-                q.classList.toggle('active', index === 0);
-                q.querySelectorAll('input[type="radio"]').forEach(input => {
-                    input.checked = false;
-                });
-                q.querySelectorAll('.option').forEach(option => {
-                    option.classList.remove('selected', 'correct', 'incorrect');
-                });
-                document.getElementById(`explanation-${index}`).classList.remove('show');
-            });
-
-            updateQuizDisplay();
         }
 
         // ========== 初始化 ==========
