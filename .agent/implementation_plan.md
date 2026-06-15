@@ -1,76 +1,63 @@
-# 修正地球上看到的月相圖形為圓形
+# 修正月相灰色陰影與亮暗方向變化
 
-將「軌道模擬器」中「地球上看到的月相」由目前的垂直橢圓形（變形）修正為完美的正圓形，並提升其視覺美學，使其與主題的暗色太空風格一致。
+將月相繪製演算法重構，修復原本模擬器中「灰色陰影無法隨公轉角度正確變化」以及「上弦月與下弦月亮面方向相同（皆為右側亮）」的教學邏輯錯誤。
 
 ## 問題原因分析
 
-1. **Canvas 繪圖比例拉伸（主要原因）**：
-   在 [index.html](file:///c:/Users/USER/Downloads/Earth-Science/index.html) 中，地球月相的 `<canvas id="moonPhasePreview">` 沒有在 HTML 屬性中指定 `width` 與 `height`。這導致瀏覽器預設其畫布大小為 `300x150`。然而，CSS 樣式中對 `.preview-canvas` 設定了 `width: 200px; height: 200px;` 的正方形尺寸。這使得預設的 `300x150` 圖像被強行擠壓拉伸至 `200x200`，造成原本應為圓形的月相在畫面上顯示為垂直方向拉長的橢圓形。
-   
-2. **視覺背景不協調**：
-   月相預覽區域 `#moonPreview` 的背景色為亮灰色（`#f8f9fa`），與整體網頁的暗藍色太空主題不搭，且 Canvas 呈現的星空背景是矩形的，不夠精緻。
+1. **亮暗面公式錯誤與方向性缺失**：
+   在原本的 [index.html](file:///c:/Users/USER/Downloads/Earth-Science/index.html) 中，`drawMoonPhase` 的照亮比例計算為：
+   `const illumination = (Math.cos(phaseAngle) + 1) / 2 * 100;`
+   這導致在新月（0°）時算出了 100% 亮面，在滿月（180°）時算出了 0% 亮面，與邏輯完全顛倒。
+   此外，繪圖邏輯中並未區分月球公轉軌道是在上半部（0°~180°，右側亮）還是下半部（180°~360°，左側亮），這導致不論是上弦月（90°）還是下弦月（270°），畫面中一律顯示為「右半邊亮」，這在天文教學上是嚴重的錯誤（下弦月應為左半邊亮，即 C 形）。
+
+2. **小測驗圖片與答案不符**：
+   由於 `drawQuizPhase` 僅使用 `illumination` 百分比參數繪圖，而沒有傳入軌道角度，導致「虧凸月（左半邊亮）」在題目圖片中被畫成了「盈凸月（右半邊亮）」。
 
 ---
 
 ## 提案修改內容
 
-### 1. 修正 Canvas 解析度拉伸
-在 HTML 中為 `<canvas id="moonPhasePreview">` 加上明確的 `width="200" height="200"` 屬性，使其內部繪圖解析度與 CSS 顯示大小一致，消除橢圓變形。
+### 1. 建立通用的月相繪圖輔助函數 `drawMoonPhaseHelper`
+將月相繪製邏輯抽象出一個通用函數，依據「軌道公轉角度」來判斷亮面應該朝左還是朝右，並正確繪製晨昏線橢圓：
+* **上半月 (0° 到 180°)**：亮面在右側，暗面在左側。依據角度在中央疊加對應寬度的橢圓（灰色或黃色）。
+* **下半月 (180° 到 360°)**：亮面在左側，暗面在右側。依據角度在中央疊加對應寬度的橢圓（灰色或黃色）。
 
-### 2. 套用圓形遮罩與陰影
-在 CSS 中為 `.preview-canvas` 加上 `border-radius: 50%` 與 `box-shadow`。這能將星空背景也裁切為正圓形，並加上外發光效果，呈現出如同透過天文望遠鏡觀測月球的質感。
-
-### 3. 優化預覽容器背景色
-將 `#moonPreview` 的背景色從亮灰色（`#f8f9fa`）改為半透明深藍色（`rgba(10, 20, 40, 0.4)`），邊框改為與系統一致的淡藍色，使其與網頁暗色風格完美契合。
+### 2. 重構三個主要繪圖入口
+* `drawMoonPhase()` (主預覽)：傳入當前公轉角度 `moonAngle`。
+* `drawPhasePreview()` (月相圖鑑)：改為傳入 `phase.angle` 代替原本的 `illumination`。
+* `drawQuizPhase()` (小測驗)：改為傳入題目定義的 `q.angle`，並更新題目資料集加上 `angle` 屬性。
 
 ---
 
 ## Proposed Changes
 
-### 軌道模擬器 UI 與樣式調整
+### 1. 擴展小測驗題目資料
+#### [MODIFY] [index.html](file:///c:/Users/USER/Downloads/Earth-Science/index.html) (約 L1223 - L1280)
+為 `type: 'image'` 的測驗題目加上 `angle` 屬性：
+* 第一題（新月）：`angle: 0`
+* 第二題（上弦月）：`angle: 90`
+* 第三題（滿月）：`angle: 180`
+* 第六題（虧凸月）：`angle: 225`
 
-#### [MODIFY] [index.html](file:///c:/Users/USER/Downloads/Earth-Science/index.html)
+### 2. 重構 JavaScript 繪圖邏輯
+#### [MODIFY] [index.html](file:///c:/Users/USER/Downloads/Earth-Science/index.html) (約 L931 - L1021)
+重寫 `drawMoonPhase` 並新增 `drawMoonPhaseHelper` 函數。
 
-**CSS 部分 (約 L155 - L169)**
-```diff
-         #moonPreview {
-             width: 100%;
-             height: 250px;
--            border: 2px solid #667eea;
--            border-radius: 10px;
--            background: #f8f9fa;
-+            border: 2px solid rgba(65, 105, 225, 0.3);
-+            border-radius: 10px;
-+            background: rgba(10, 20, 40, 0.4);
-             display: flex;
-             align-items: center;
-             justify-content: center;
-         }
- 
-         .preview-canvas {
-             width: 200px;
-             height: 200px;
-+            border-radius: 50%;
-+            overflow: hidden;
-+            box-shadow: 0 0 20px rgba(65, 105, 225, 0.5);
-         }
-```
+#### [MODIFY] [index.html](file:///c:/Users/USER/Downloads/Earth-Science/index.html) (約 L1178 - L1220)
+修改 `drawPhasePreview` 及其在 `initializePhasesGrid` 中的呼叫方式。
 
-**HTML 部分 (約 L662 - L664)**
-```diff
-                     <div class="preview-title">地球上看到的月相</div>
-                     <div id="moonPreview">
--                        <canvas id="moonPhasePreview" class="preview-canvas"></canvas>
-+                        <canvas id="moonPhasePreview" class="preview-canvas" width="200" height="200"></canvas>
-                     </div>
-```
+#### [MODIFY] [index.html](file:///c:/Users/USER/Downloads/Earth-Science/index.html) (約 L1345 - L1400)
+修改 `drawQuizPhase` 及其在 `initializeQuiz` 中的呼叫方式。
 
 ---
 
 ## Verification Plan
 
 ### Manual Verification
-1. 用瀏覽器開啟 `index.html`。
-2. 觀察「地球上看到的月相」圖形，確認其是否為完美的圓形（不再是橢圓形）。
-3. 拖曳月球軌道上的月球，觀察月相的亮暗變化是否正常運作，確認 Canvas 繪製功能未受影響。
-4. 檢查背景配色是否融入系統暗色主題，且圓形外框是否有好看的發光效果。
+1. 開啟網頁，並切換至「軌道模擬器」分頁。
+2. 拖曳月球，觀察地球上看到的月相：
+   * 在 **90°** 時，確認為 **右半邊亮 (D形上弦月)**，左半邊為灰色陰影。
+   * 在 **270°** 時，確認為 **左半邊亮 (C形下弦月)**，右半邊為灰色陰影。
+   * 從 180° 到 360° 拖曳時，確認灰色陰影從右側逐漸擴展。
+3. 切換至「月相圖鑑」分頁，確認「下弦月」、「殘月」卡片中的預覽圖亮面在左側。
+4. 切換至「小測驗」分頁，確認第 6 題「虧凸月」繪製出來的亮面在左側。
