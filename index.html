@@ -615,6 +615,124 @@
             color: rgba(150, 180, 220, 0.8);
         }
 
+        .sort-game {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        .sort-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .sort-instructions {
+            color: rgba(150, 180, 220, 0.8);
+            line-height: 1.7;
+            margin-bottom: 20px;
+        }
+
+        .sort-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .sort-board {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(220px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .sort-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 2px solid rgba(65, 105, 225, 0.3);
+            background: linear-gradient(135deg, rgba(30, 60, 114, 0.5) 0%, rgba(42, 82, 152, 0.5) 100%);
+            cursor: grab;
+            transition: all 0.25s ease;
+            user-select: none;
+            color: rgba(220, 230, 245, 0.95);
+        }
+
+        .sort-card:hover {
+            transform: translateY(-2px);
+            border-color: #4189ff;
+            box-shadow: 0 8px 20px rgba(65, 105, 225, 0.2);
+        }
+
+        .sort-card.dragging {
+            opacity: 0.5;
+            border-style: dashed;
+        }
+
+        .sort-card.correct {
+            border-color: #4caf50;
+            background: rgba(76, 175, 80, 0.18);
+        }
+
+        .sort-card.wrong {
+            border-color: #f44336;
+            background: rgba(244, 67, 54, 0.12);
+        }
+
+        .sort-phase-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .sort-phase-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 1.1em;
+        }
+
+        .sort-phase-seq {
+            color: #ffd700;
+            font-weight: 700;
+            min-width: 28px;
+        }
+
+        .sort-status {
+            margin-top: 20px;
+            padding: 18px 20px;
+            border-radius: 10px;
+            background: rgba(65, 105, 225, 0.15);
+            border: 1px solid rgba(65, 105, 225, 0.3);
+            color: rgba(220, 230, 245, 0.9);
+            line-height: 1.6;
+        }
+
+        .sort-status.success {
+            border-color: rgba(76, 175, 80, 0.6);
+            background: rgba(76, 175, 80, 0.12);
+            color: #d4f7d7;
+        }
+
+        .sort-status.error {
+            border-color: rgba(244, 67, 54, 0.6);
+            background: rgba(244, 67, 54, 0.08);
+            color: #f9d1d1;
+        }
+
         .moon-trail {
             position: absolute;
             pointer-events: none;
@@ -655,6 +773,7 @@
             <button class="tab-button active" onclick="switchTab(0)">軌道模擬器</button>
             <button class="tab-button" onclick="switchTab(1)">月相圖鑑</button>
             <button class="tab-button" onclick="switchTab(2)">小測驗</button>
+            <button class="tab-button" onclick="switchTab(3)">月相排序遊戲</button>
         </div>
 
         <!-- 區塊一：軌道模擬器 -->
@@ -778,6 +897,32 @@
                     <button class="btn-primary" id="prevBtn" onclick="prevQuestion()">← 上一題</button>
                     <button class="btn-primary" id="nextBtn" onclick="nextQuestion()">下一題 →</button>
                     <button class="btn-primary" id="submitBtn" onclick="submitQuiz()" style="display:none;">提交答卷</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 區塊四：月相排序遊戲 -->
+        <div id="tab3" class="tab-content">
+            <div class="sort-game">
+                <div class="sort-header">
+                    <h2 style="color: #4189ff;">🌙 月相排序挑戰</h2>
+                    <button class="btn-primary" onclick="shuffleSortGame()">🔀 重新排列</button>
+                </div>
+
+                <div class="sort-instructions">
+                    把月相依照「新月 → 眉月 → 上弦月 → 盈凸月 → 滿月 → 虧凸月 → 下弦月 → 殘月」的順序拖曳排列。<br>
+                    這個順序會幫助你理解月相在一個朔望月中的變化過程。
+                </div>
+
+                <div class="sort-controls">
+                    <button class="btn-primary" onclick="checkSortGame()">✅ 檢查答案</button>
+                    <button class="btn-secondary" onclick="resetSortGame()" style="padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 1em; font-weight: 600;">🔄 重置</button>
+                </div>
+
+                <div id="sortBoard" class="sort-board" aria-label="月相排序遊戲面板"></div>
+
+                <div id="sortStatus" class="sort-status">
+                    目前還沒檢查答案，先把月相依序排好吧！
                 </div>
             </div>
         </div>
@@ -1272,6 +1417,8 @@
                 if (document.getElementById('quizQuestions').innerHTML === '') {
                     initializeQuiz();
                 }
+            } else if (index === 3) {
+                initializeSortGame();
             }
         }
 
@@ -1625,6 +1772,116 @@
             document.getElementById('quizQuestions').style.display = 'block';
         }
 
+        // ========== 月相排序遊戲 ==========
+        const SORT_PHASE_SEQUENCE = ['新月', '眉月', '上弦月', '盈凸月', '滿月', '虧凸月', '下弦月', '殘月'];
+        let sortGameOrder = [...SORT_PHASE_SEQUENCE];
+        let draggedSortIndex = null;
+
+        function getPhaseIcon(phaseName) {
+            const icons = {
+                '新月': '🌑',
+                '眉月': '🌒',
+                '上弦月': '🌔',
+                '盈凸月': '🌖',
+                '滿月': '🌕',
+                '虧凸月': '🌗',
+                '下弦月': '🌘',
+                '殘月': '🌑'
+            };
+            return icons[phaseName] || '🌙';
+        }
+
+        function initializeSortGame() {
+            sortGameOrder = shuffleArray([...SORT_PHASE_SEQUENCE]);
+            renderSortGame();
+        }
+
+        function renderSortGame() {
+            const board = document.getElementById('sortBoard');
+            if (!board) return;
+
+            board.innerHTML = '';
+            sortGameOrder.forEach((phaseName, index) => {
+                const card = document.createElement('div');
+                card.className = 'sort-card';
+                card.draggable = true;
+                card.dataset.index = index;
+                card.innerHTML = `
+                    <div class="sort-phase-name">
+                        <span class="sort-phase-icon">${getPhaseIcon(phaseName)}</span>
+                        <span>${phaseName}</span>
+                    </div>
+                    <span class="sort-phase-seq">${index + 1}</span>
+                `;
+
+                card.addEventListener('dragstart', () => {
+                    draggedSortIndex = index;
+                    card.classList.add('dragging');
+                });
+
+                card.addEventListener('dragend', () => {
+                    draggedSortIndex = null;
+                    card.classList.remove('dragging');
+                });
+
+                card.addEventListener('dragover', (event) => {
+                    event.preventDefault();
+                });
+
+                card.addEventListener('drop', (event) => {
+                    event.preventDefault();
+                    if (draggedSortIndex === null || draggedSortIndex === index) return;
+
+                    const [moved] = sortGameOrder.splice(draggedSortIndex, 1);
+                    sortGameOrder.splice(index, 0, moved);
+                    draggedSortIndex = null;
+                    renderSortGame();
+                });
+
+                board.appendChild(card);
+            });
+        }
+
+        function checkSortGame() {
+            const status = document.getElementById('sortStatus');
+            const cards = document.querySelectorAll('.sort-card');
+
+            const isCorrect = sortGameOrder.every((phaseName, index) => phaseName === SORT_PHASE_SEQUENCE[index]);
+
+            cards.forEach((card, index) => {
+                const phaseName = sortGameOrder[index];
+                const isRight = phaseName === SORT_PHASE_SEQUENCE[index];
+                card.classList.toggle('correct', isRight);
+                card.classList.toggle('wrong', !isRight);
+                card.querySelector('.sort-phase-seq').textContent = index + 1;
+            });
+
+            if (isCorrect) {
+                status.className = 'sort-status success';
+                status.textContent = '✅ 恭喜！你的月相順序完全正確，這就是一個朔望月中月相的變化順序。';
+            } else {
+                status.className = 'sort-status error';
+                const wrongCount = sortGameOrder.filter((phaseName, index) => phaseName !== SORT_PHASE_SEQUENCE[index]).length;
+                status.textContent = `⚠️ 目前還有 ${wrongCount} 個月相位置不正確，請再調整成正確順序。`;
+            }
+        }
+
+        function resetSortGame() {
+            const status = document.getElementById('sortStatus');
+            status.className = 'sort-status';
+            status.textContent = '已重置，請重新排列月相順序。';
+            sortGameOrder = [...SORT_PHASE_SEQUENCE];
+            renderSortGame();
+        }
+
+        function shuffleSortGame() {
+            const status = document.getElementById('sortStatus');
+            status.className = 'sort-status';
+            status.textContent = '新的挑戰已產生，請把月相依序排列。';
+            sortGameOrder = shuffleArray([...SORT_PHASE_SEQUENCE]);
+            renderSortGame();
+        }
+
         // ========== 觀測者時間控制 ==========
         function changeObserverTime() {
             earthRotation = parseInt(document.getElementById('timeSlider').value);
@@ -1654,6 +1911,7 @@
 
         // ========== 初始化 ==========
         window.addEventListener('DOMContentLoaded', function() {
+            initializeSortGame();
             animate();
         });
     </script>
